@@ -4,7 +4,7 @@ import requests
 import time
 from datetime import datetime
 from datetime import timedelta
-import sqlite3
+from sqlalchemy import create_engine, Table, MetaData
 import encode
 from collections import Counter
 import json
@@ -15,7 +15,6 @@ URL = 'https://www.united.com/en/us/flightstatus/details/{flight_no}/{date}/{ori
 ANON_TOKEN_URL = 'https://www.united.com/api/auth/anonymous-token'
 UPGRADE_LIST_URL = 'https://www.united.com/api/flight/upgradeListExtended?flightNumber={flight_no}&flightDate={date}&fromAirportCode={origin}'
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-INSERT_STATEMENT = 'INSERT INTO data_post (`p_data_timestamp`, `hash`, `flight_no`, `origin`, `destination`, `date`, `day_of_week`, `actual_flight_time`, `p_ca_bu`, `p_ca_co`, `p_ca_pp`, `p_ca_to`, `p_au_bu`, `p_au_co`, `p_au_pp`, `p_au_to`, `p_bo_bu`, `p_bo_co`, `p_bo_pp`, `p_bo_to`, `p_ps_bu`, `p_ps_co`, `p_ps_pp`, `p_ps_to`, `p_sa_bu`, `p_sa_co`, `p_sa_pp`, `p_sa_to`, `p_he_bu`, `p_he_co`, `p_he_pp`, `p_he_to`, `p_gr_bu`, `p_gr_co`, `p_gr_pp`, `p_gr_to`, `p_re_bu`, `p_re_co`, `p_re_pp`, `p_re_to`, `p_ci_bu`, `p_ci_co`, `p_ci_pp`, `p_ci_to`, `p_cl_ug_bu`, `p_cl_ug_co`, `p_cl_ug_pp`, `p_cl_sa_bu`, `p_cl_sa_co`, `p_cl_sa_pp`, `p_cl_to_bu`, `p_cl_to_co`, `p_cl_to_pp`, `p_sy_ug_bu`, `p_sy_ug_co`, `p_sy_ug_pp`, `p_sy_sa_bu`, `p_sy_sa_co`, `p_sy_sa_pp`, `p_sy_to_bu`, `p_sy_to_co`, `p_sy_to_pp`, `p_data_raw`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -28,78 +27,14 @@ logger.addHandler(handler)
 
 load_dotenv()
 HOME_DIRECTORY = os.getenv('APP_HOME')
+MYSQL_IP = os.getenv('MYSQL_IP')
+MYSQL_PORT = os.getenv('MYSQL_PORT')
+MYSQL_USERNAME = os.getenv('MYSQL_USERNAME')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
 
-database_connection = sqlite3.connect(f'{HOME_DIRECTORY}data.db')
-cursor = database_connection.cursor()
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS `data_post` (
-    `id` INTEGER PRIMARY KEY,
-    `p_data_timestamp`,
-    `hash`,
-    `flight_no`,
-    `origin`,
-    `destination`,
-    `date`,
-    `day_of_week`,
-    `actual_flight_time`,
-    `p_ca_bu`,
-    `p_ca_co`,
-    `p_ca_pp`,
-    `p_ca_to`,
-    `p_au_bu`,
-    `p_au_co`,
-    `p_au_pp`,
-    `p_au_to`,
-    `p_bo_bu`,
-    `p_bo_co`,
-    `p_bo_pp`,
-    `p_bo_to`,
-    `p_ps_bu`,
-    `p_ps_co`,
-    `p_ps_pp`,
-    `p_ps_to`,
-    `p_sa_bu`,
-    `p_sa_co`,
-    `p_sa_pp`,
-    `p_sa_to`,
-    `p_he_bu`,
-    `p_he_co`,
-    `p_he_pp`,
-    `p_he_to`,
-    `p_gr_bu`,
-    `p_gr_co`,
-    `p_gr_pp`,
-    `p_gr_to`,
-    `p_re_bu`,
-    `p_re_co`,
-    `p_re_pp`,
-    `p_re_to`,
-    `p_ci_bu`,
-    `p_ci_co`,
-    `p_ci_pp`,
-    `p_ci_to`,
-    `p_cl_ug_bu`,
-    `p_cl_ug_co`,
-    `p_cl_ug_pp`,
-    `p_cl_sa_bu`,
-    `p_cl_sa_co`,
-    `p_cl_sa_pp`,
-    `p_cl_to_bu`,
-    `p_cl_to_co`,
-    `p_cl_to_pp`,
-    `p_sy_ug_bu`,
-    `p_sy_ug_co`,
-    `p_sy_ug_pp`,
-    `p_sy_sa_bu`,
-    `p_sy_sa_co`,
-    `p_sy_sa_pp`,
-    `p_sy_to_bu`,
-    `p_sy_to_co`,
-    `p_sy_to_pp`,
-    `p_data_raw`
-)
-''')
-database_connection.commit()
+engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
+data_table = Table('data_post', MetaData(), autoload_with=engine)
+connection = engine.connect()
 
 def fetch(flight_no, date, origin, destination):
     session_url = URL.format(flight_no=flight_no, date=date, origin=origin, destination=destination)
@@ -167,79 +102,80 @@ def process(data):
     flight_no = str(segment['flightNumber']).zfill(4)
     origin = segment['departureAirportCode']
     destination = segment['arrivalAirportCode']
-    date = datetime.strptime(segment['flightDate'], '%Y%m%d').strftime('%m/%d/%Y')
-    day_of_week = datetime.strptime(segment['flightDate'], '%Y%m%d').weekday()
+    date = datetime.strptime(segment['flightDate'], '%Y%m%d')
+    day_of_week = date.weekday()
     actual_flight_time = datetime.strptime(segment['scheduledDepartureTime'], '%Y%m%d %I:%M %p').strftime('%I:%M%p').lower().lstrip('0')[:-1]
+    hash = encode.encode(flight_no, date.strftime('%m/%d/%Y'), origin, destination)
 
-    cursor.execute(
-        INSERT_STATEMENT, 
-        (
-            timestamp,
-            encode.encode(flight_no, date, origin, destination),
-            flight_no,
-            origin,
-            destination,
-            date,
-            day_of_week,
-            actual_flight_time,
-            pbt_front['capacity'],
-            pbt_rear['capacity'],
-            pbt_middle['capacity'],
-            int(pbt_front['capacity']) + int(pbt_rear['capacity']) + int(pbt_middle['capacity']),
-            pbt_front['authorized'],
-            pbt_rear['authorized'],
-            pbt_middle['authorized'],
-            int(pbt_front['authorized']) + int(pbt_rear['authorized']) + int(pbt_middle['authorized']),
-            pbt_front['booked'],
-            pbt_rear['booked'],
-            pbt_middle['booked'],
-            int(pbt_front['booked']) + int(pbt_rear['booked']) + int(pbt_middle['booked']),
-            pbt_front['ps'],
-            pbt_rear['ps'],
-            pbt_middle['ps'],
-            int(pbt_front['ps']) + int(pbt_rear['ps']) + int(pbt_middle['ps']),
-            pbt_front['sa'],
-            pbt_rear['sa'],
-            pbt_middle['sa'],
-            int(pbt_front['sa']) + int(pbt_rear['sa']) + int(pbt_middle['sa']),
-            pbt_front['held'],
-            pbt_rear['held'],
-            pbt_middle['held'],
-            int(pbt_front['held']) + int(pbt_rear['held']) + int(pbt_middle['held']),
-            pbt_front['group'],
-            pbt_rear['group'],
-            pbt_middle['group'],
-            int(pbt_front['group']) + int(pbt_rear['group']) + int(pbt_middle['group']),
-            pbt_front['revenueStandby'],
-            pbt_rear['revenueStandby'],
-            pbt_middle['revenueStandby'],
-            int(pbt_front['revenueStandby']) + int(pbt_rear['revenueStandby']) + int(pbt_middle['revenueStandby']),
-            check_in_front['total'],
-            check_in_rear['total'],
-            check_in_middle['total'],
-            int(check_in_front['total']) + int(check_in_rear['total']) + int(check_in_middle['total']),
-            front_cleared_counts.get('Upgrade', 0),
-            rear_cleared_counts.get('Upgrade', 0),
-            middle_cleared_counts.get('Upgrade', 0),
-            front_cleared_counts.get('Standby', 0),
-            rear_cleared_counts.get('Standby', 0),
-            middle_cleared_counts.get('Standby', 0),
-            sum(front_cleared_counts.values()),
-            sum(rear_cleared_counts.values()),
-            sum(middle_cleared_counts.values()),
-            front_standby_counts.get('Upgrade', 0),
-            rear_standby_counts.get('Upgrade', 0),
-            middle_standby_counts.get('Upgrade', 0),
-            front_standby_counts.get('Standby', 0),
-            rear_standby_counts.get('Standby', 0),
-            middle_standby_counts.get('Standby', 0),
-            sum(front_standby_counts.values()),
-            sum(rear_standby_counts.values()),
-            sum(middle_standby_counts.values()),
-            json.dumps(data)
-        )
+    insert_statement = data_table.insert().values(
+        hash=hash,
+        p_data_timestamp= timestamp,
+        flight_no=flight_no,
+        origin=origin,
+        destination=destination,
+        date=date.strftime('%Y-%m-%d'),
+        day_of_week=day_of_week,
+        actual_flight_time=actual_flight_time,
+        p_ca_bu=pbt_front['capacity'],
+        p_ca_co=pbt_rear['capacity'],
+        p_ca_pp=pbt_middle['capacity'],
+        p_ca_to=int(pbt_front['capacity']) + int(pbt_rear['capacity']) + int(pbt_middle['capacity']),
+        p_au_bu=pbt_front['authorized'],
+        p_au_co=pbt_rear['authorized'],
+        p_au_pp=pbt_middle['authorized'],
+        p_au_to=int(pbt_front['authorized']) + int(pbt_rear['authorized']) + int(pbt_middle['authorized']),
+        p_bo_bu=pbt_front['booked'],
+        p_bo_co=pbt_rear['booked'],
+        p_bo_pp=pbt_middle['booked'],
+        p_bo_to=int(pbt_front['booked']) + int(pbt_rear['booked']) + int(pbt_middle['booked']),
+        p_ps_bu=pbt_front['ps'],
+        p_ps_co=pbt_rear['ps'],
+        p_ps_pp=pbt_middle['ps'],
+        p_ps_to=int(pbt_front['ps']) + int(pbt_rear['ps']) + int(pbt_middle['ps']),
+        p_sa_bu=pbt_front['sa'],
+        p_sa_co=pbt_rear['sa'],
+        p_sa_pp=pbt_middle['sa'],
+        p_sa_to=int(pbt_front['sa']) + int(pbt_rear['sa']) + int(pbt_middle['sa']),
+        p_he_bu=pbt_front['held'],
+        p_he_co=pbt_rear['held'],
+        p_he_pp=pbt_middle['held'],
+        p_he_to=int(pbt_front['held']) + int(pbt_rear['held']) + int(pbt_middle['held']),
+        p_gr_bu=pbt_front['group'],
+        p_gr_co=pbt_rear['group'],
+        p_gr_pp=pbt_middle['group'],
+        p_gr_to=int(pbt_front['group']) + int(pbt_rear['group']) + int(pbt_middle['group']),
+        p_re_bu=pbt_front['revenueStandby'],
+        p_re_co=pbt_rear['revenueStandby'],
+        p_re_pp=pbt_middle['revenueStandby'],
+        p_re_to=int(pbt_front['revenueStandby']) + int(pbt_rear['revenueStandby']) + int(pbt_middle['revenueStandby']),
+        p_ci_bu=check_in_front['total'],
+        p_ci_co=check_in_rear['total'],
+        p_ci_pp=check_in_middle['total'],
+        p_ci_to=int(check_in_front['total']) + int(check_in_rear['total']) + int(check_in_middle['total']),
+        p_cl_ug_bu=front_cleared_counts.get('Upgrade', 0),
+        p_cl_ug_co=rear_cleared_counts.get('Upgrade', 0),
+        p_cl_ug_pp=middle_cleared_counts.get('Upgrade', 0),
+        p_cl_sa_bu=front_cleared_counts.get('Standby', 0),
+        p_cl_sa_co=rear_cleared_counts.get('Standby', 0),
+        p_cl_sa_pp=middle_cleared_counts.get('Standby', 0),
+        p_cl_to_bu=sum(front_cleared_counts.values()),
+        p_cl_to_co=sum(rear_cleared_counts.values()),
+        p_cl_to_pp=sum(middle_cleared_counts.values()),
+        p_sy_ug_bu=front_standby_counts.get('Upgrade', 0),
+        p_sy_ug_co=rear_standby_counts.get('Upgrade', 0),
+        p_sy_ug_pp=middle_standby_counts.get('Upgrade', 0),
+        p_sy_sa_bu=front_standby_counts.get('Standby', 0),
+        p_sy_sa_co=rear_standby_counts.get('Standby', 0),
+        p_sy_sa_pp=middle_standby_counts.get('Standby', 0),
+        p_sy_to_bu=sum(front_standby_counts.values()),
+        p_sy_to_co=sum(rear_standby_counts.values()),
+        p_sy_to_pp=sum(middle_standby_counts.values()),
+        p_data_raw=json.dumps(data)
     )
-    database_connection.commit()
+    
+    connection.execute(insert_statement)
+    connection.commit()
+
     logger.info(f'Fetched and added flight UAL{flight_no} {origin}-{destination} which departed {date} at {actual_flight_time} to database.')
 
 flights = [
@@ -258,6 +194,9 @@ yesterday = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
 for flight in flights:
     data = fetch(flight[0], yesterday, flight[1], flight[2])
     process(data)
+
     time.sleep(2)
+
+connection.close()
 
 logger.info(f'Finished fetching all flights to NRT/HND on {yesterday}.')
