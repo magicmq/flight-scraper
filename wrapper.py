@@ -3,6 +3,7 @@ import subprocess
 import time
 import os
 import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -17,12 +18,12 @@ logger.addHandler(handler)
 
 load_dotenv()
 MAX_TRIES = 3
-HOME_DIRECTORY = os.getenv('APP_HOME')
+HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()
 
 success = False
 attempt = 1
 while attempt <= MAX_TRIES:
-    result = subprocess.run(['python3', f'{HOME_DIRECTORY}flightscraper.py', sys.argv[1], sys.argv[2]])
+    result = subprocess.run(['python3', str(HOME_DIRECTORY / Path('flightscraper.py')), sys.argv[1], sys.argv[2]])
     if result.returncode == 1:
         attempt += 1
         logger.error(f'Failed to fetch data for flight {sys.argv[1]}-{sys.argv[2]}.')
