@@ -44,7 +44,7 @@ def fetch(eres_username, eres_password, origin, destination, date, logger):
     driver.find_element(By.XPATH, '//button[normalize-space()="Sign in"]').click()
 
     try:
-        accept_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//button[normalize-space()="Accept"]')))
+        accept_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, '//button[normalize-space()="Accept"]')))
         accept_button.click()
     except TimeoutException:
         logger.exception('Unable to locate button to accept terms and conditions. Exiting...')
@@ -68,7 +68,7 @@ def fetch(eres_username, eres_password, origin, destination, date, logger):
     driver.find_element(By.XPATH, '//button[normalize-space()="Search"]').click()
 
     try:
-        rows = WebDriverWait(driver, 10).until(
+        rows = WebDriverWait(driver, 20).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, '[class*="src-components-FSRDetailsComponent-FSRDetailsComponent__entireRow"]'))
         )
     except TimeoutException:
@@ -80,7 +80,7 @@ def fetch(eres_username, eres_password, origin, destination, date, logger):
     flight_row.find_element(By.CSS_SELECTOR, '[class*="Collapsible src-components-FSRDetailsComponent-FSRDetailsComponent__detailsCollapsible"]').click()
 
     try:
-        standby_list = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, 'fsrTabs-pane-1')))
+        standby_list = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'fsrTabs-pane-1')))
     except TimeoutException:
         logger.exception('Unable to locate pass rider list pane. Exiting...')
         exit(1)
