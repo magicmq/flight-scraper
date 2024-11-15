@@ -32,7 +32,7 @@ SCREENSHOT_FOLDER = HOME_DIRECTORY / Path('pass_list_screenshots')
 SCREENSHOT_FOLDER.mkdir(exist_ok=True)
 
 engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
-data_table = Table('data_test', MetaData(), autoload_with=engine)
+data_table = Table('data', MetaData(), autoload_with=engine)
 
 def fetch_flight(origin, destination, depart_date):
     flight_search_result, pass_rider_result, pass_rider_screenshot = fetch(ERES_USERNAME, ERES_PASSWORD, origin, destination, depart_date, logger)
