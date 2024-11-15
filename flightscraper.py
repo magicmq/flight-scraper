@@ -6,11 +6,9 @@ import json
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
-import sqlite3
+from sqlalchemy import create_engine, Table, MetaData
 import encode
 from fetch import fetch
-
-INSERT_STATEMENT = 'INSERT INTO `data` (`id`, `data_timestamp`, `hash`, `flight_no`, `origin`, `destination`, `date`, `day_of_week`, `flight_time`, `av_bu`, `av_co`, `av_pp`, `av_to`, `ca_bu`, `ca_co`, `ca_pp`, `ca_to`, `au_bu`, `au_co`, `au_pp`, `au_to`, `bo_bu`, `bo_co`, `bo_pp`, `bo_to`, `ps_bu`, `ps_co`, `ps_pp`, `ps_to`, `sa_bu`, `sa_co`, `sa_pp`, `sa_to`, `he_bu`, `he_co`, `he_pp`, `he_to`, `gr_bu`, `gr_co`, `gr_pp`, `gr_to`, `re_bu`, `re_co`, `re_pp`, `re_to`, `pos_va`, `pos_pe`, `flight_raw`, `pass_rider_raw`) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -25,66 +23,16 @@ load_dotenv()
 HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()
 ERES_USERNAME = os.getenv('ERES_USERNAME')
 ERES_PASSWORD = os.getenv('ERES_PASSWORD')
+MYSQL_IP = os.getenv('MYSQL_IP')
+MYSQL_PORT = os.getenv('MYSQL_PORT')
+MYSQL_USERNAME = os.getenv('MYSQL_USERNAME')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
 
 SCREENSHOT_FOLDER = HOME_DIRECTORY / Path('pass_list_screenshots')
 SCREENSHOT_FOLDER.mkdir(exist_ok=True)
 
-database_connection = sqlite3.connect(str(HOME_DIRECTORY / Path('data.db')))
-cursor = database_connection.cursor()
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS `data` (
-    `id` INTEGER PRIMARY KEY,
-    `data_timestamp`,
-    `hash`,
-    `flight_no`,
-    `origin`,
-    `destination`,
-    `date`,
-    `day_of_week`,
-    `flight_time`,
-    `av_bu`,
-    `av_co`,
-    `av_pp`,
-    `av_to`,
-    `ca_bu`,
-    `ca_co`,
-    `ca_pp`,
-    `ca_to`,
-    `au_bu`,
-    `au_co`,
-    `au_pp`,
-    `au_to`,
-    `bo_bu`,
-    `bo_co`,
-    `bo_pp`,
-    `bo_to`,
-    `ps_bu`,
-    `ps_co`,
-    `ps_pp`,
-    `ps_to`,
-    `sa_bu`,
-    `sa_co`,
-    `sa_pp`,
-    `sa_to`,
-    `he_bu`,
-    `he_co`,
-    `he_pp`,
-    `he_to`,
-    `gr_bu`,
-    `gr_co`,
-    `gr_pp`,
-    `gr_to`,
-    `re_bu`,
-    `re_co`,
-    `re_pp`,
-    `re_to`,
-    `pos_va`,
-    `pos_pe`,
-    `flight_raw`,
-    `pass_rider_raw`
-)
-''')
-database_connection.commit()
+engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
+data_table = Table('data_test', MetaData(), autoload_with=engine)
 
 def fetch_flight(origin, destination, depart_date):
     flight_search_result, pass_rider_result, pass_rider_screenshot = fetch(ERES_USERNAME, ERES_PASSWORD, origin, destination, depart_date, logger)
@@ -144,61 +92,63 @@ def search_and_cache(origin, destination):
 
     hash = encode.encode(data['flight_no'], data['returned_departure_date'], data['returned_origin'], data['returned_destination'])
     timestamp = int(time.time())
-    day_of_week = datetime.strptime(data['returned_departure_date'], '%m/%d/%Y').weekday()
+    returned_date = datetime.strptime(data['returned_departure_date'], '%m/%d/%Y')
+    day_of_week = returned_date.weekday()
 
-    cursor.execute(INSERT_STATEMENT, 
-        (
-            timestamp,
-            hash,
-            data['flight_no'],
-            data['returned_origin'],
-            data['returned_destination'],
-            data['returned_departure_date'],
-            int(day_of_week),
-            data['departure_time'],
-            int(data['available']['Business']),
-            int(data['available']['Coach']),
-            int(data['available']['PremiumPlus']),
-            int(data['available']['Total']),
-            int(data['capacity']['Business']),
-            int(data['capacity']['Coach']),
-            int(data['capacity']['PremiumPlus']),
-            int(data['capacity']['Total']),
-            int(data['authorized']['Business']),
-            int(data['authorized']['Coach']),
-            int(data['authorized']['PremiumPlus']),
-            int(data['authorized']['Total']),
-            int(data['booked']['Business']),
-            int(data['booked']['Coach']),
-            int(data['booked']['PremiumPlus']),
-            int(data['booked']['Total']),
-            int(data['positive_space']['Business']),
-            int(data['positive_space']['Coach']),
-            int(data['positive_space']['PremiumPlus']),
-            int(data['positive_space']['Total']),
-            int(data['sa_listed']['Business']),
-            int(data['sa_listed']['Coach']),
-            int(data['sa_listed']['PremiumPlus']),
-            int(data['sa_listed']['Total']),
-            int(data['held']['Business']),
-            int(data['held']['Coach']),
-            int(data['held']['PremiumPlus']),
-            int(data['held']['Total']),
-            int(data['group']['Business']),
-            int(data['group']['Coach']),
-            int(data['group']['PremiumPlus']),
-            int(data['group']['Total']),
-            int(data['rev_standby']['Business']),
-            int(data['rev_standby']['Coach']),
-            int(data['rev_standby']['PremiumPlus']),
-            int(data['rev_standby']['Total']),
-            int(data['pass_position_vacation']),
-            int(data['pass_position_personal']),
-            json.dumps(data['flight_raw']),
-            json.dumps(data['pass_rider_raw'])
-        )
+    insert_statement = data_table.insert().values( 
+        hash=hash,
+        data_timestamp=timestamp,
+        flight_no=data['flight_no'],
+        origin=data['returned_origin'],
+        destination=data['returned_destination'],
+        date=returned_date.strftime('%Y-%m-%d'),
+        day_of_week=int(day_of_week),
+        flight_time=data['departure_time'],
+        av_bu=int(data['available']['Business']),
+        av_co=int(data['available']['Coach']),
+        av_pp=int(data['available']['PremiumPlus']),
+        av_to=int(data['available']['Total']),
+        ca_bu=int(data['capacity']['Business']),
+        ca_co=int(data['capacity']['Coach']),
+        ca_pp=int(data['capacity']['PremiumPlus']),
+        ca_to=int(data['capacity']['Total']),
+        au_bu=int(data['authorized']['Business']),
+        au_co=int(data['authorized']['Coach']),
+        au_pp=int(data['authorized']['PremiumPlus']),
+        au_to=int(data['authorized']['Total']),
+        bo_bu=int(data['booked']['Business']),
+        bo_co=int(data['booked']['Coach']),
+        bo_pp=int(data['booked']['PremiumPlus']),
+        bo_to=int(data['booked']['Total']),
+        ps_bu=int(data['positive_space']['Business']),
+        ps_co=int(data['positive_space']['Coach']),
+        ps_pp=int(data['positive_space']['PremiumPlus']),
+        ps_to=int(data['positive_space']['Total']),
+        sa_bu=int(data['sa_listed']['Business']),
+        sa_co=int(data['sa_listed']['Coach']),
+        sa_pp=int(data['sa_listed']['PremiumPlus']),
+        sa_to=int(data['sa_listed']['Total']),
+        he_bu=int(data['held']['Business']),
+        he_co=int(data['held']['Coach']),
+        he_pp=int(data['held']['PremiumPlus']),
+        he_to=int(data['held']['Total']),
+        gr_bu=int(data['group']['Business']),
+        gr_co=int(data['group']['Coach']),
+        gr_pp=int(data['group']['PremiumPlus']),
+        gr_to=int(data['group']['Total']),
+        re_bu=int(data['rev_standby']['Business']),
+        re_co=int(data['rev_standby']['Coach']),
+        re_pp=int(data['rev_standby']['PremiumPlus']),
+        re_to=int(data['rev_standby']['Total']),
+        pos_va=int(data['pass_position_vacation']),
+        pos_pe=int(data['pass_position_personal']),
+        flight_raw=json.dumps(data['flight_raw']),
+        pass_rider_raw=json.dumps(data['pass_rider_raw'])
     )
-    database_connection.commit()
+    
+    with engine.connect() as connection:
+        connection.execute(insert_statement)
+        connection.commit()
 
     screenshot_path = str(SCREENSHOT_FOLDER / Path(f'{hash}.png'))
     with open(screenshot_path, 'wb') as f:
