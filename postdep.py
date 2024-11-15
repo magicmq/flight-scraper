@@ -26,7 +26,6 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 load_dotenv()
-HOME_DIRECTORY = os.getenv('APP_HOME')
 MYSQL_IP = os.getenv('MYSQL_IP')
 MYSQL_PORT = os.getenv('MYSQL_PORT')
 MYSQL_USERNAME = os.getenv('MYSQL_USERNAME')
