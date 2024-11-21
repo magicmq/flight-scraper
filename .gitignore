@@ -10,3 +10,6 @@ __pycache__/*
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+
+pass_list_screenshots/*
+downloaded_files/*

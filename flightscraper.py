@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Table, MetaData
+from PIL import Image
 import encode
 from fetch import fetch
 
@@ -35,8 +36,8 @@ SCREENSHOT_FOLDER.mkdir(exist_ok=True)
 engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
 data_table = Table(MYSQL_TABLE, MetaData(), autoload_with=engine)
 
-def fetch_flight(origin, destination, depart_date):
-    flight_search_result, pass_rider_result, pass_rider_screenshot = fetch(ERES_USERNAME, ERES_PASSWORD, origin, destination, depart_date, logger)
+def fetch_flight(origin, destination):
+    flight_search_result, pass_rider_result, pass_rider_screenshot = fetch(ERES_USERNAME, ERES_PASSWORD, origin, destination)
 
     flight = flight_search_result['AvailableRoutes']['Routes'][0]['Segments'][0]
     pass_rider_list = pass_rider_result['PassengerList']
@@ -87,9 +88,7 @@ def fetch_flight(origin, destination, depart_date):
     }
 
 def search_and_cache(origin, destination):
-    today = datetime.today()
-
-    data = fetch_flight(origin, destination, today)
+    data = fetch_flight(origin, destination)
 
     hash = encode.encode(data['flight_no'], data['returned_departure_date'], data['returned_origin'], data['returned_destination'])
     timestamp = int(time.time())
@@ -151,9 +150,16 @@ def search_and_cache(origin, destination):
         connection.execute(insert_statement)
         connection.commit()
 
-    screenshot_path = str(SCREENSHOT_FOLDER / Path(f'{hash}.png'))
-    with open(screenshot_path, 'wb') as f:
-        f.write(data['pass_rider_screenshot'])
+    # Seleniumbase captures a little past the pass rider list to the left, so crop the extra space off the left to match the images that were captured previously
+    original_screenshot_path = data['pass_rider_screenshot']
+    screenshot = Image.open(original_screenshot_path)
+    width, height = screenshot.size
+    cropped_screenshot = screenshot.crop((7, 0, width, height))
+
+    new_screenshot_path = SCREENSHOT_FOLDER / Path(f'{hash}.png')
+    cropped_screenshot.save(new_screenshot_path)
+
+    os.remove(original_screenshot_path)
 
     logger.info(f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.')
 

@@ -1,105 +1,163 @@
-import time
+import asyncio
+import base64
 import json
-import gzip
 
-from seleniumwire import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common import TimeoutException
+from seleniumbase.undetected import cdp_driver
+import mycdp
 
-USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 PASSRIDER_LOGIN = '**REDACTED**'
-FLIGHT_SEARCH_REQUEST = '**REDACTED**'
-PASS_RIDER_REQUEST = '**REDACTED**'
+API_URL = '**REDACTED**'
 
-def decode_response_body(request):
-    if request.response.headers.get('content-encoding') == 'gzip':
-        return gzip.decompress(request.response.body).decode('utf-8')
-    else:
-        return request.response.body.decode('utf-8')
+class Fetch:
+    def __init__(self, browser: cdp_driver.browser.Browser, eres_username: str, eres_password: str, origin: str, destination: str):
+        self._browser = browser
+        self._eres_username = eres_username
+        self._eres_password = eres_password
+        self._origin = origin
+        self._destination = destination
+        self._tab = None
+        self._running_tasks = set()
+        self._responses = []
+        self._screenshot_path = ''
 
-def fetch(eres_username, eres_password, origin, destination, date, logger):
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument(f'--user-agent={USER_AGENT}')
-    chrome_options.add_argument('--window-size=1920,3000')
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    seleniumwire_options = {
-        'request_storage': 'memory',
-        'exclude_hosts': ['accounts.google.com', 'content-autofill.googleapis.com', 'optimizationguide-pa.googleapis.com', 'ingest.quantummetric.com', 'rl.quantummetric.com', 'cdn.quantummetric.com', 'tags.tiqcdn.com', 'google-analytics.com', 'www.google-analytics.com', 'www.googletagmanager.com']
-    }
-    driver = webdriver.Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
+    async def start(self):
+        self._tab = await self._browser.get(PASSRIDER_LOGIN, new_tab=True)
+        self._tab.add_handler(mycdp.fetch.RequestPaused, self._handle_request_paused)
+        await self._tab.send(mycdp.fetch.enable([
+            mycdp.fetch.RequestPattern(
+                url_pattern=API_URL,
+                request_stage=mycdp.fetch.RequestStage(
+                    value='Response'
+                )
+            )
+        ]))
+        await self._tab.wait(t=1)
+        await self._perform_actions()
 
-    driver.scopes = [
-        '**REDACTED**'
-    ]
+    async def _perform_actions(self):
+        username_element = await self._tab.select('input#userName')
+        await username_element.send_keys_async(self._eres_username)
 
-    driver.get(PASSRIDER_LOGIN)
-    driver.find_element(By.ID, 'userName').send_keys(eres_username)
-    driver.find_element(By.ID, 'password').send_keys(eres_password)
-    driver.find_element(By.XPATH, '//button[normalize-space()="Sign in"]').click()
+        await self._tab.wait(t=1)
 
-    try:
-        accept_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, '//button[normalize-space()="Accept"]')))
-        accept_button.click()
-    except TimeoutException:
-        logger.exception('Unable to locate button to accept terms and conditions. Exiting...')
-        exit(1)
+        password_element = await self._tab.select('input#password')
+        await password_element.send_keys_async(self._eres_password)
 
-    time.sleep(0.5)
+        await self._tab.wait(t=1)
 
-    origin_field = driver.find_element(By.ID, 'bookFlightOriginInput')
-    origin_field.send_keys(origin)
-    origin_field.send_keys(Keys.TAB)
+        submit_button = await self._tab.select('button.submit')
+        await submit_button.mouse_click_async()
 
-    destination_field = driver.find_element(By.ID, 'bookFlightDestinationInput')
-    destination_field.send_keys(destination)
-    destination_field.send_keys(Keys.TAB)
+        await self._tab.wait(t=3)
 
-    driver.find_element(By.ID, 'oneWayIcon').click()
+        accept_button = await self._tab.select('[class*="src-components-Modal-termsConditions__secondaryButton"]', timeout=20)
+        await accept_button.mouse_click_async()
 
-    today_string = date.strftime('%A, %B %d, %Y')
-    driver.find_element(By.CSS_SELECTOR, f'[aria-label="{today_string}').click()
+        await self._tab.wait(t=2)
 
-    driver.find_element(By.XPATH, '//button[normalize-space()="Search"]').click()
+        origin_input = await self._tab.select('input#bookFlightOriginInput')
+        await origin_input.mouse_click_async()
 
-    try:
-        rows = WebDriverWait(driver, 20).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, '[class*="src-components-FSRDetailsComponent-FSRDetailsComponent__entireRow"]'))
-        )
-    except TimeoutException:
-        logger.exception('Unable to locate flight row in search results. Exiting...')
-        exit(1)
+        await self._tab.wait(t=1)
 
-    flight_row = rows[0]
+        await origin_input.send_keys_async(self._origin)
 
-    flight_row.find_element(By.CSS_SELECTOR, '[class*="Collapsible src-components-FSRDetailsComponent-FSRDetailsComponent__detailsCollapsible"]').click()
+        await self._tab.wait(t=0.5)
 
-    try:
-        standby_list = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'fsrTabs-pane-1')))
-    except TimeoutException:
-        logger.exception('Unable to locate pass rider list pane. Exiting...')
-        exit(1)
+        origin_fill = await self._tab.select('button#listBtn0', timeout=5)
+        await origin_fill.mouse_click_async()
 
-    time.sleep(1)
+        await self._tab.wait(t=1)
 
-    pass_rider_screenshot = standby_list.screenshot_as_png
+        dest_input = await self._tab.select('input#bookFlightDestinationInput')
+        await dest_input.mouse_click_async()
 
-    flight_search_result = None
-    pass_rider_result = None
-    for request in driver.requests:
-        if request.url == FLIGHT_SEARCH_REQUEST:
-            flight_search_result = decode_response_body(request)
-        elif request.url == PASS_RIDER_REQUEST:
-            pass_rider_result = decode_response_body(request)
+        await self._tab.wait(t=1)
 
-    flight_search_result = json.loads(flight_search_result)
-    pass_rider_result = json.loads(pass_rider_result)
+        await dest_input.send_keys_async(self._destination)
 
-    driver.quit()
+        await self._tab.wait(t=0.5)
+
+        dest_fill = await self._tab.select('button#listBtn0', timeout=5)
+        await dest_fill.mouse_click_async()
+
+        await self._tab.wait(t=1)
+
+        calendar_button = await self._tab.select('button.SingleDatePickerInput_calendarIcon')
+        await calendar_button.mouse_click_async()
+
+        await self._tab.wait(t=0.5)
+
+        today_button = await self._tab.select('td.CalendarDay__today button.CalendarDay_button')
+        await today_button.mouse_click_async()
+
+        await self._tab.wait(t=1)
+
+        search_button = await self._tab.select('[class*="src-components-SearchFlightForm-searchFlightForm__secondaryButton"]')
+        await search_button.mouse_click_async()
+
+        await self._tab.wait(t=3)
+
+        flight_rows = await self._tab.select_all('[class*="Collapsible src-components-FSRDetailsComponent-FSRDetailsComponent__detailsCollapsible"]', timeout=5)
+        flight_row = flight_rows[0]
+        await flight_row.mouse_click_async()
+
+        await self._tab.wait(t=2)
+
+        standby_list = await self._tab.select('div#fsrTabs-pane-1', timeout=10)
+        self._screenshot_path = await standby_list.save_screenshot_async()
+    
+
+    async def stop(self):
+        await self._tab.close()
+    
+
+    def _handle_xhr_response(self, task):
+        payload, is_encoded = task.result()
+        try:
+            if is_encoded:
+                decoded_body = base64.b64decode(payload)
+                payload = json.loads(decoded_body)
+                self._responses.append(payload)
+        finally:
+            self._running_tasks.remove(task)
+
+
+    async def _handle_request_paused(self, event: mycdp.fetch.RequestPaused, event_tab: cdp_driver.tab.Tab):
+        if event.response_status_code == 200:
+            print(f'Got request: {event.request.url}   {event.response_status_code}   {event.request_id}')
+
+            task = asyncio.create_task(event_tab.send(mycdp.fetch.get_response_body(request_id=event.request_id)))
+            self._running_tasks.add(task)
+
+            task.add_done_callback(self._handle_xhr_response)
+
+        event_tab.feed_cdp(mycdp.fetch.continue_response(request_id=event.request_id))
+
+
+async def fetch_async(eres_username, eres_password, origin, destination):
+    browser = await cdp_driver.cdp_util.start_async(headless=True, browser_args=[f'--user-agent="{USER_AGENT}"'])
+
+    interceptor = Fetch(browser, eres_username, eres_password, origin, destination)
+    await interceptor.start()
+
+    responses = interceptor._responses
+    screenshot_url = interceptor._screenshot_path
+
+    await interceptor.stop()
+
+    browser.stop()
+    
+    return responses, screenshot_url
+
+
+def fetch(eres_username, eres_password, origin, destination):
+    event_loop = asyncio.get_event_loop()
+    result = event_loop.run_until_complete(fetch_async(eres_username, eres_password, origin, destination))
+
+    flight_search_result = result[0][2]
+    pass_rider_result = result[0][4]
+    pass_rider_screenshot = result[1]
 
     return flight_search_result, pass_rider_result, pass_rider_screenshot
