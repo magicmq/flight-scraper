@@ -137,7 +137,7 @@ class Fetch:
 
 
 async def fetch_async(eres_username, eres_password, origin, destination):
-    browser = await cdp_driver.cdp_util.start_async(headless=True, browser_args=[f'--user-agent="{USER_AGENT}"'])
+    browser = await cdp_driver.cdp_util.start_async(headless=True, browser_args=[f'--user-agent="{USER_AGENT}"', '--window-size=1920,1080', '--maximize'])
 
     interceptor = Fetch(browser, eres_username, eres_password, origin, destination)
     await interceptor.start()
