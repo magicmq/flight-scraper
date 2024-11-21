@@ -31,9 +31,10 @@ MYSQL_IP = os.getenv('MYSQL_IP')
 MYSQL_PORT = os.getenv('MYSQL_PORT')
 MYSQL_USERNAME = os.getenv('MYSQL_USERNAME')
 MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
+MYSQL_TABLE = os.getenv('MYSQL_TABLE_POST')
 
 engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
-data_table = Table('data_post', MetaData(), autoload_with=engine)
+data_table = Table(MYSQL_TABLE, MetaData(), autoload_with=engine)
 connection = engine.connect()
 
 def fetch(flight_no, date, origin, destination):
