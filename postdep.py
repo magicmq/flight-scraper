@@ -11,6 +11,7 @@ import json
 import sys
 import logging
 
+MAX_TRIES = 3
 URL = 'https://www.united.com/en/us/flightstatus/details/{flight_no}/{date}/{origin}/{destination}/UA'
 ANON_TOKEN_URL = 'https://www.united.com/api/auth/anonymous-token'
 UPGRADE_LIST_URL = 'https://www.united.com/api/flight/upgradeListExtended?flightNumber={flight_no}&flightDate={date}&fromAirportCode={origin}'
@@ -175,7 +176,7 @@ def process(data):
     connection.execute(insert_statement)
     connection.commit()
 
-    logger.info(f'Fetched and added flight UAL{flight_no} {origin}-{destination} which departed {date} at {actual_flight_time} to database.')
+    logger.info(f'Fetched and added flight UAL{flight_no} {origin}-{destination} which departed {date.strftime('%Y-%m-%d')} at {actual_flight_time} to database.')
 
 flights = [
     ('7', 'IAH', 'NRT'),
@@ -191,10 +192,28 @@ flights = [
 yesterday = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
 
 for flight in flights:
-    data = fetch(flight[0], yesterday, flight[1], flight[2])
-    process(data)
+    data = None
+    attempt = 1
 
-    time.sleep(2)
+    while attempt <= MAX_TRIES:
+        try:
+            data = fetch(flight[0], yesterday, flight[1], flight[2])
+            break
+        except Exception as e:
+            attempt += 1
+            logger.error(f'Failed to fetch post-departure data for flight {flight[1]}-{flight[2]}: {e}.')
+            if attempt <= MAX_TRIES:
+                logger.error(f'Will try again in 5 seconds.')
+                time.sleep(5)
+            else:
+                logger.error(f'Failed to fetch post-departure data for flight {flight[1]}-{flight[2]} after {MAX_TRIES} attempts.')
+
+    if data is None:
+        time.sleep(15)
+        continue
+    else: 
+        process(data)
+        time.sleep(15)
 
 connection.close()
 
