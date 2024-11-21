@@ -15,7 +15,7 @@ MAX_TRIES = 3
 URL = 'https://www.united.com/en/us/flightstatus/details/{flight_no}/{date}/{origin}/{destination}/UA'
 ANON_TOKEN_URL = 'https://www.united.com/api/auth/anonymous-token'
 UPGRADE_LIST_URL = 'https://www.united.com/api/flight/upgradeListExtended?flightNumber={flight_no}&flightDate={date}&fromAirportCode={origin}'
-USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
