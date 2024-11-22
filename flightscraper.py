@@ -11,14 +11,7 @@ from PIL import Image
 import encode
 from fetch import fetch
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('[%(asctime)s] [flightscraper-%(name)s] [%(levelname)s] %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()
@@ -162,5 +155,3 @@ def search_and_cache(origin, destination):
     os.remove(original_screenshot_path)
 
     logger.info(f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.')
-
-search_and_cache(sys.argv[1], sys.argv[2])
