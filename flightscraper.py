@@ -5,7 +5,6 @@ import sys
 import json
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, Table, MetaData
 from PIL import Image
 import encode
@@ -13,7 +12,6 @@ from fetch import fetch
 
 logger = logging.getLogger('flightscraper')
 
-load_dotenv()
 HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()
 ERES_USERNAME = os.getenv('ERES_USERNAME')
 ERES_PASSWORD = os.getenv('ERES_PASSWORD')
