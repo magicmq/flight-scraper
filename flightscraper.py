@@ -153,9 +153,9 @@ def search_and_cache(origin, destination):
 
     os.remove(original_screenshot_path)
 
-    logger.info(f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.')
+    logger.info(f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {data['returned_origin']}-{data['returned_destination']} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.')
     push_notification(
-        f'Fetched Flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination}',
-        f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.',
+        f'Fetched Flight UAL{data["flight_raw"]["FlightNumber"]} {data['returned_origin']}-{data['returned_destination']}',
+        f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {data['returned_origin']}-{data['returned_destination']} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.',
         0
     )
