@@ -126,8 +126,6 @@ class Fetch:
 
     async def _handle_request_paused(self, event: mycdp.fetch.RequestPaused, event_tab: cdp_driver.tab.Tab):
         if event.response_status_code == 200:
-            print(f'Got request: {event.request.url}   {event.response_status_code}   {event.request_id}')
-
             task = asyncio.create_task(event_tab.send(mycdp.fetch.get_response_body(request_id=event.request_id)))
             self._running_tasks.add(task)
 
@@ -139,15 +137,19 @@ class Fetch:
 async def fetch_async(eres_username, eres_password, origin, destination):
     browser = await cdp_driver.cdp_util.start_async(headless=True, browser_args=[f'--user-agent="{USER_AGENT}"', '--window-size=1920,1080', '--maximize'])
 
-    interceptor = Fetch(browser, eres_username, eres_password, origin, destination)
-    await interceptor.start()
+    try:
+        interceptor = Fetch(browser, eres_username, eres_password, origin, destination)
+        await interceptor.start()
 
-    responses = interceptor._responses
-    screenshot_url = interceptor._screenshot_path
-
-    await interceptor.stop()
-
-    browser.stop()
+        responses = interceptor._responses
+        screenshot_url = interceptor._screenshot_path
+        
+        await interceptor.stop()
+        browser.stop()
+    except Exception:
+        await interceptor.stop()
+        browser.stop()
+        raise
     
     return responses, screenshot_url
 
