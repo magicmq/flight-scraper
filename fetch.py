@@ -13,6 +13,8 @@ USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML,
 
 PASSRIDER_LOGIN = os.getenv('PASSRIDER_LOGIN')
 API_URL = os.getenv('API_URL')
+FSR_RESULT_URL = os.getenv('FSR_RESULT_URL')
+PRL_RESULT_URL = os.getenv('PRL_RESULT_URL')
 
 class Fetch:
     def __init__(self, browser: cdp_driver.browser.Browser, eres_username: str, eres_password: str, origin: str, destination: str):
@@ -23,7 +25,7 @@ class Fetch:
         self._destination = destination
         self._tab = None
         self._running_tasks = set()
-        self._responses = []
+        self._responses = {}
         self._screenshot_path = ''
 
     async def start(self):
@@ -119,21 +121,24 @@ class Fetch:
     
 
     def _handle_xhr_response(self, task):
-        payload, is_encoded = task.result()
+        url, (payload, is_encoded) = task.result()
         try:
             if is_encoded:
                 decoded_body = base64.b64decode(payload)
                 payload = json.loads(decoded_body)
-                self._responses.append(payload)
+                self._responses[url] = payload
         finally:
             self._running_tasks.remove(task)
 
+    async def _handle_request_task(self, url: str, event_tab: cdp_driver.tab.Tab, request_id: mycdp.fetch.RequestId):
+        result = await event_tab.send(mycdp.fetch.get_response_body(request_id=request_id))
+        return url, result
 
     async def _handle_request_paused(self, event: mycdp.fetch.RequestPaused, event_tab: cdp_driver.tab.Tab):
         if event.response_status_code == 200:
             logger.info(f'Captured Request: {event.request.url}   Status: {event.response_status_code}   ID: {event.request_id}')
 
-            task = asyncio.create_task(event_tab.send(mycdp.fetch.get_response_body(request_id=event.request_id)))
+            task = asyncio.create_task(self._handle_request_task(event.request.url, event_tab, event.request_id))
             self._running_tasks.add(task)
 
             task.add_done_callback(self._handle_xhr_response)
@@ -165,8 +170,8 @@ def fetch(eres_username, eres_password, origin, destination):
     event_loop = asyncio.get_event_loop()
     result = event_loop.run_until_complete(fetch_async(eres_username, eres_password, origin, destination))
 
-    flight_search_result = result[0][2]
-    pass_rider_result = result[0][4]
+    flight_search_result = result[0][FSR_RESULT_URL]
+    pass_rider_result = result[0][PRL_RESULT_URL]
     pass_rider_screenshot = result[1]
 
     return flight_search_result, pass_rider_result, pass_rider_screenshot
