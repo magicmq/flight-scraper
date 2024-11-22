@@ -11,6 +11,8 @@ import json
 import sys
 import logging
 
+from notify import push_notification
+
 MAX_TRIES = 3
 URL = 'https://www.united.com/en/us/flightstatus/details/{flight_no}/{date}/{origin}/{destination}/UA'
 ANON_TOKEN_URL = 'https://www.united.com/api/auth/anonymous-token'
@@ -208,6 +210,7 @@ for flight in flights:
                 time.sleep(5)
             else:
                 logger.error(f'Failed to fetch post-departure data for flight {flight[1]}-{flight[2]} after {MAX_TRIES} attempts.')
+                push_notification(f'Failed To Fetch Flight {flight[1]}-{flight[2]} (Post-Dep)', f'Failed to fetch post-departure data for flight {flight[1]}-{flight[2]}. Aborted after {MAX_TRIES} attempts.\nMost recent error: {e}', 2, retry=60, expire=1800)
 
     if data is None:
         time.sleep(15)
@@ -219,3 +222,4 @@ for flight in flights:
 connection.close()
 
 logger.info(f'Finished fetching all flights to NRT/HND on {yesterday}.')
+push_notification('Fetched Flights (Post-Departure)', f'Finished fetching all flights to NRT/HND on {yesterday}.', 0)

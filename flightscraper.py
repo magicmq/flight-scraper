@@ -1,7 +1,6 @@
 import os
 import time
 from datetime import datetime
-import sys
 import json
 import logging
 from pathlib import Path
@@ -9,6 +8,8 @@ from sqlalchemy import create_engine, Table, MetaData
 from PIL import Image
 import encode
 from fetch import fetch
+
+from notify import push_notification
 
 logger = logging.getLogger('flightscraper')
 
@@ -153,3 +154,8 @@ def search_and_cache(origin, destination):
     os.remove(original_screenshot_path)
 
     logger.info(f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.')
+    push_notification(
+        f'Fetched Flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination}',
+        f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {origin}-{destination} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.',
+        0
+    )
