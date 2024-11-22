@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import os
 from logging import getLogger
 
 from seleniumbase.undetected import cdp_driver
@@ -9,8 +10,9 @@ import mycdp
 logger = getLogger('flightscraper')
 
 USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-PASSRIDER_LOGIN = '**REDACTED**'
-API_URL = '**REDACTED**'
+
+PASSRIDER_LOGIN = os.getenv('PASSRIDER_LOGIN')
+API_URL = os.getenv('API_URL')
 
 class Fetch:
     def __init__(self, browser: cdp_driver.browser.Browser, eres_username: str, eres_password: str, origin: str, destination: str):
