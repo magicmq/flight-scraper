@@ -1,13 +1,10 @@
 import os
 import requests
-from dotenv import load_dotenv
 import logging
 
-PUSH_URL = 'https://api.pushover.net/1/messages.json'
+from settings import PUSHOVER_USER, PUSHOVER_TOKEN
 
-load_dotenv()
-PUSHOVER_USER = os.getenv('PUSHOVER_USER')
-PUSHOVER_TOKEN = os.getenv('PUSHOVER_TOKEN')
+PUSH_URL = 'https://api.pushover.net/1/messages.json'
 
 logger = logging.getLogger('flightscraper')
 

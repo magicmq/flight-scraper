@@ -13,6 +13,8 @@ import logging
 
 from notify import push_notification
 
+from settings import MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_IP, MYSQL_PORT, MYSQL_TABLE_POST
+
 MAX_TRIES = 3
 URL = 'https://www.united.com/en/us/flightstatus/details/{flight_no}/{date}/{origin}/{destination}/UA'
 ANON_TOKEN_URL = 'https://www.united.com/api/auth/anonymous-token'
@@ -28,15 +30,8 @@ formatter = logging.Formatter('[%(asctime)s] [postdep-%(name)s] [%(levelname)s] 
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-load_dotenv()
-MYSQL_IP = os.getenv('MYSQL_IP')
-MYSQL_PORT = os.getenv('MYSQL_PORT')
-MYSQL_USERNAME = os.getenv('MYSQL_USERNAME')
-MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
-MYSQL_TABLE = os.getenv('MYSQL_TABLE_POST')
-
 engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
-data_table = Table(MYSQL_TABLE, MetaData(), autoload_with=engine)
+data_table = Table(MYSQL_TABLE_POST, MetaData(), autoload_with=engine)
 connection = engine.connect()
 
 def fetch(flight_no, date, origin, destination):

@@ -1,9 +1,6 @@
 import sys
 import time
-import os
 import logging
-from pathlib import Path
-from dotenv import load_dotenv
 
 from flightscraper import search_and_cache
 from notify import push_notification
@@ -17,9 +14,7 @@ formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(messag
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-load_dotenv()
 MAX_TRIES = 3
-HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()
 
 attempt = 1
 while attempt <= MAX_TRIES:

@@ -11,19 +11,12 @@ from fetch import fetch
 
 from notify import push_notification
 
-logger = logging.getLogger('flightscraper')
+from settings import APP_HOME, ERES_USERNAME, ERES_PASSWORD, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_IP, MYSQL_PORT, MYSQL_TABLE
 
-HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()
-ERES_USERNAME = os.getenv('ERES_USERNAME')
-ERES_PASSWORD = os.getenv('ERES_PASSWORD')
-MYSQL_IP = os.getenv('MYSQL_IP')
-MYSQL_PORT = os.getenv('MYSQL_PORT')
-MYSQL_USERNAME = os.getenv('MYSQL_USERNAME')
-MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
-MYSQL_TABLE = os.getenv('MYSQL_TABLE')
-
-SCREENSHOT_FOLDER = HOME_DIRECTORY / Path('pass_list_screenshots')
+SCREENSHOT_FOLDER = APP_HOME / Path('pass_list_screenshots')
 SCREENSHOT_FOLDER.mkdir(exist_ok=True)
+
+logger = logging.getLogger('flightscraper')
 
 engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_IP}:{MYSQL_PORT}/data')
 data_table = Table(MYSQL_TABLE, MetaData(), autoload_with=engine)

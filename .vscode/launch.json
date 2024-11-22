@@ -16,7 +16,7 @@
             "name": "Python Debugger: App",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/flightscraper.py",
+            "program": "${workspaceFolder}/wrapper.py",
             "console": "integratedTerminal",
             "args": ["IAH", "NRT"]
         }
