@@ -11,7 +11,7 @@ from PIL import Image
 import encode
 from fetch import fetch
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('flightscraper')
 
 load_dotenv()
 HOME_DIRECTORY = Path(os.getenv('APP_HOME')).resolve()

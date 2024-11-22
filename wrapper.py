@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from flightscraper import search_and_cache
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('flightscraper')
 logger.setLevel(logging.INFO)
 
 handler = logging.StreamHandler(sys.stdout)

@@ -1,9 +1,12 @@
 import asyncio
 import base64
 import json
+from logging import getLogger
 
 from seleniumbase.undetected import cdp_driver
 import mycdp
+
+logger = getLogger('flightscraper')
 
 USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 PASSRIDER_LOGIN = 'https://erespassrider.united.com/passriderlogin/'
@@ -128,6 +131,8 @@ class Fetch:
 
     async def _handle_request_paused(self, event: mycdp.fetch.RequestPaused, event_tab: cdp_driver.tab.Tab):
         if event.response_status_code == 200:
+            logger.info(f'Captured Request: {event.request.url}   Status: {event.response_status_code}   ID: {event.request_id}')
+
             task = asyncio.create_task(event_tab.send(mycdp.fetch.get_response_body(request_id=event.request_id)))
             self._running_tasks.add(task)
 
