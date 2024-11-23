@@ -22,7 +22,10 @@ engine = create_engine(f'mysql+mysqldb://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQ
 data_table = Table(MYSQL_TABLE, MetaData(), autoload_with=engine)
 
 def fetch_flight(origin, destination):
+    logger.debug('Fetching data...')
     flight_search_result, pass_rider_result, pass_rider_screenshot = fetch(ERES_USERNAME, ERES_PASSWORD, origin, destination)
+    logger.debug('Data fetched.')
+    logger.debug('Processing data...')
 
     flight = flight_search_result['AvailableRoutes']['Routes'][0]['Segments'][0]
     pass_rider_list = pass_rider_result['PassengerList']
@@ -49,6 +52,8 @@ def fetch_flight(origin, destination):
             pass_position_vacation = passenger['Position']
         elif passenger['PassClass'] == 'Unaccompanied traveler - Personal ePass':
             pass_position_personal = passenger['Position']
+        
+    logger.debug('Data processed.')
     
     return {
         'flight_no': flight_no,
@@ -73,12 +78,16 @@ def fetch_flight(origin, destination):
     }
 
 def search_and_cache(origin, destination):
+    logger.debug('Beginning search and cache...')
     data = fetch_flight(origin, destination)
+    logger.debug('Data fetch and processing complete.')
 
     hash = encode.encode(data['flight_no'], data['returned_departure_date'], data['returned_origin'], data['returned_destination'])
     timestamp = int(time.time())
     returned_date = datetime.strptime(data['returned_departure_date'], '%m/%d/%Y')
     day_of_week = returned_date.weekday()
+
+    logger.debug('Inserting data into table...')
 
     insert_statement = data_table.insert().values( 
         hash=hash,
@@ -132,8 +141,13 @@ def search_and_cache(origin, destination):
     )
     
     with engine.connect() as connection:
-        connection.execute(insert_statement)
+        result = connection.execute(insert_statement)
+        logger.debug(f'Inserted row into table with ID {result.inserted_primary_key}.')
+        logger.debug('Committing connection...')
         connection.commit()
+        logger.debug('Connection committed.')
+    
+    logger.debug('Processing/moving screenshot...')
 
     # Seleniumbase captures a little past the pass rider list to the left, so crop the extra space off the left to match the images that were captured previously
     original_screenshot_path = data['pass_rider_screenshot']
@@ -145,6 +159,8 @@ def search_and_cache(origin, destination):
     cropped_screenshot.save(new_screenshot_path)
 
     os.remove(original_screenshot_path)
+
+    logger.debug(f'Screenshot processed and saved to {new_screenshot_path}.')
 
     logger.info(f'Fetched and added flight UAL{data["flight_raw"]["FlightNumber"]} {data['returned_origin']}-{data['returned_destination']} departing {data["flight_raw"]["DepartureDate"]} at {data["flight_raw"]["DepartureTime"]} to database.')
     push_notification(

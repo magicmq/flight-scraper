@@ -5,11 +5,12 @@ import logging
 from flightscraper import search_and_cache
 from notify import push_notification
 
+from settings import LOGGING_LEVEL
+
 logger = logging.getLogger('flightscraper')
-logger.setLevel(logging.INFO)
+logger.setLevel(LOGGING_LEVEL)
 
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
 formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -19,6 +20,7 @@ MAX_TRIES = 3
 attempt = 1
 while attempt <= MAX_TRIES:
     try:
+        logger.debug(f'Fetching data for flight {sys.argv[1]}-{sys.argv[2]}')
         search_and_cache(sys.argv[1], sys.argv[2])
         break
     except Exception as e:

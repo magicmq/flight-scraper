@@ -1,4 +1,3 @@
-import os
 import requests
 import logging
 
@@ -27,3 +26,5 @@ def push_notification(title, message, priority, retry=None, expire=None):
 
     if response.status_code != 200:
         logger.error(f'Failed to send notification to pushover: {response}')
+    else:
+        logger.debug('Successfully sent push notification.')

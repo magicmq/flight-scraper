@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-import os
 import requests
 import time
 from datetime import datetime
@@ -13,7 +11,7 @@ import logging
 
 from notify import push_notification
 
-from settings import MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_IP, MYSQL_PORT, MYSQL_TABLE_POST
+from settings import LOGGING_LEVEL, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_IP, MYSQL_PORT, MYSQL_TABLE_POST
 
 MAX_TRIES = 3
 URL = 'https://www.united.com/en/us/flightstatus/details/{flight_no}/{date}/{origin}/{destination}/UA'
@@ -21,12 +19,11 @@ ANON_TOKEN_URL = 'https://www.united.com/api/auth/anonymous-token'
 UPGRADE_LIST_URL = 'https://www.united.com/api/flight/upgradeListExtended?flightNumber={flight_no}&flightDate={date}&fromAirportCode={origin}'
 USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger('flightscraper')
+logger.setLevel(LOGGING_LEVEL)
 
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('[%(asctime)s] [postdep-%(name)s] [%(levelname)s] %(message)s')
+formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
@@ -36,6 +33,8 @@ connection = engine.connect()
 
 def fetch(flight_no, date, origin, destination):
     session_url = URL.format(flight_no=flight_no, date=date, origin=origin, destination=destination)
+
+    logger.debug(f'Constructed session URL: {session_url}')
 
     headers = {
         'accept': 'application/json',
@@ -54,6 +53,8 @@ def fetch(flight_no, date, origin, destination):
 
     bearer_token = response.json()['data']['token']['hash']
 
+    logger.debug(f'Fetched anonymous bearer token: {bearer_token}')
+
     headers = {
         'accept': 'application/json',
         'accept-language': 'en-US,en;q=0.9',
@@ -66,15 +67,21 @@ def fetch(flight_no, date, origin, destination):
         'x-authorization-api': f'bearer {bearer_token}',
     }
 
+    logger.debug('Sending request...')
+
     response = requests.get(
         UPGRADE_LIST_URL.format(flight_no=flight_no, date=date, origin=origin),
         headers=headers,
         timeout=5
     )
 
+    logger.debug('Request sent.')
+
     return response.json()
 
 def process(data):
+    logger.debug('Processing data...')
+
     segment = data['segment']
 
     pbts = data['pbts']
@@ -104,6 +111,9 @@ def process(data):
     day_of_week = date.weekday()
     actual_flight_time = datetime.strptime(segment['scheduledDepartureTime'], '%Y%m%d %I:%M %p').strftime('%I:%M%p').lower().lstrip('0')[:-1]
     hash = encode.encode(flight_no, date.strftime('%m/%d/%Y'), origin, destination)
+
+    logger.debug('Data processed.')
+    logger.debug('Inserting data into table...')
 
     insert_statement = data_table.insert().values(
         hash=hash,
@@ -171,8 +181,11 @@ def process(data):
         p_data_raw=json.dumps(data)
     )
     
-    connection.execute(insert_statement)
+    result = connection.execute(insert_statement)
+    logger.debug(f'Inserted row into table with ID {result.inserted_primary_key}.')
+    logger.debug('Committing connection...')
     connection.commit()
+    logger.debug('Connection committed.')
 
     logger.info(f'Fetched and added flight UAL{flight_no} {origin}-{destination} which departed {date.strftime('%Y-%m-%d')} at {actual_flight_time} to database.')
 
@@ -195,6 +208,7 @@ for flight in flights:
 
     while attempt <= MAX_TRIES:
         try:
+            logger.debug(f'Fetching data for flight {flight[1]}-{flight[2]} on date {yesterday}.')
             data = fetch(flight[0], yesterday, flight[1], flight[2])
             break
         except Exception as e:
