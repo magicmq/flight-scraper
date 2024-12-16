@@ -198,7 +198,8 @@ flights = [
     ('39', 'LAX', 'HND'),
     ('131', 'EWR', 'HND'),
     ('875', 'SFO', 'HND'),
-    ('803', 'IAD', 'HND')
+    ('803', 'IAD', 'HND'),
+    ('79', 'EWR', 'NRT')
 ]
 yesterday = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
 
