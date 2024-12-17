@@ -199,7 +199,8 @@ flights = [
     ('131', 'EWR', 'HND'),
     ('875', 'SFO', 'HND'),
     ('803', 'IAD', 'HND'),
-    ('79', 'EWR', 'NRT')
+    ('79', 'EWR', 'NRT'),
+    ('35', 'SFO', 'KIX')
 ]
 yesterday = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
 
@@ -232,4 +233,4 @@ for flight in flights:
 connection.close()
 
 logger.info(f'Finished fetching all flights to NRT/HND on {yesterday}.')
-push_notification('Fetched Flights (Post-Departure)', f'Finished fetching all flights to NRT/HND on {yesterday}.', 0)
+push_notification('Fetched Flights (Post-Departure)', f'Finished fetching all flights to NRT/HND/KIX on {yesterday}.', 0)
