@@ -96,12 +96,15 @@ def process(data):
 
     front_cleared_counts = Counter(item['clearanceType'] for item in data['front']['cleared'])
     front_standby_counts = Counter(item['clearanceType'] for item in data['front']['standby'])
+    front_standby_counts_nci = Counter(item['clearanceType'] for item in data['front']['standby'] if not item['isCheckedIn'])
 
     middle_cleared_counts = Counter(item['clearanceType'] for item in data['middle']['cleared'])
     middle_standby_counts = Counter(item['clearanceType'] for item in data['middle']['standby'])
+    middle_standby_counts_nci = Counter(item['clearanceType'] for item in data['middle']['standby'] if not item['isCheckedIn'])
 
     rear_cleared_counts = Counter(item['clearanceType'] for item in data['rear']['cleared'])
     rear_standby_counts = Counter(item['clearanceType'] for item in data['rear']['standby'])
+    rear_standby_counts_nci = Counter(item['clearanceType'] for item in data['rear']['standby'] if not item['isCheckedIn'])
 
     timestamp = int(time.time())
     flight_no = str(segment['flightNumber']).zfill(4)
@@ -178,6 +181,15 @@ def process(data):
         p_sy_to_bu=sum(front_standby_counts.values()),
         p_sy_to_co=sum(rear_standby_counts.values()),
         p_sy_to_pp=sum(middle_standby_counts.values()),
+        p_sy_ug_bu_nci=front_standby_counts_nci.get('Upgrade', 0),
+        p_sy_ug_co_nci=rear_standby_counts_nci.get('Upgrade', 0),
+        p_sy_ug_pp_nci=middle_standby_counts_nci.get('Upgrade', 0),
+        p_sy_sa_bu_nci=front_standby_counts_nci.get('Standby', 0),
+        p_sy_sa_co_nci=rear_standby_counts_nci.get('Standby', 0),
+        p_sy_sa_pp_nci=middle_standby_counts_nci.get('Standby', 0),
+        p_sy_to_bu_nci=front_standby_counts_nci.values(),
+        p_sy_to_co_nci=rear_standby_counts_nci.values(),
+        p_sy_to_pp_nci=middle_standby_counts_nci.values(),
         p_data_raw=json.dumps(data)
     )
     
