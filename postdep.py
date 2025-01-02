@@ -187,9 +187,9 @@ def process(data):
         p_sy_sa_bu_nci=front_standby_counts_nci.get('Standby', 0),
         p_sy_sa_co_nci=rear_standby_counts_nci.get('Standby', 0),
         p_sy_sa_pp_nci=middle_standby_counts_nci.get('Standby', 0),
-        p_sy_to_bu_nci=front_standby_counts_nci.values(),
-        p_sy_to_co_nci=rear_standby_counts_nci.values(),
-        p_sy_to_pp_nci=middle_standby_counts_nci.values(),
+        p_sy_to_bu_nci=sum(front_standby_counts_nci.values()),
+        p_sy_to_co_nci=sum(rear_standby_counts_nci.values()),
+        p_sy_to_pp_nci=sum(middle_standby_counts_nci.values()),
         p_data_raw=json.dumps(data)
     )
     
