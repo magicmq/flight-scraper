@@ -162,6 +162,8 @@ class Fetch:
             self._running_tasks.add(task)
 
             task.add_done_callback(self._handle_xhr_response)
+        else:
+            logger.error('The request response was not 200.')
 
         event_tab.feed_cdp(mycdp.fetch.continue_response(request_id=event.request_id))
 
