@@ -202,21 +202,26 @@ def process(data):
     logger.info(f'Fetched and added flight UAL{flight_no} {origin}-{destination} which departed {date.strftime('%Y-%m-%d')} at {actual_flight_time} to database.')
 
 flights = [
-    ('7', 'IAH', 'NRT'),
-    ('32', 'LAX', 'NRT'),
-    ('837', 'SFO', 'NRT'),
-    ('143', 'DEN', 'NRT'),
-    ('881', 'ORD', 'HND'),
-    ('39', 'LAX', 'HND'),
-    ('131', 'EWR', 'HND'),
-    ('875', 'SFO', 'HND'),
-    ('803', 'IAD', 'HND'),
-    ('79', 'EWR', 'NRT'),
-    ('35', 'SFO', 'KIX')
+    ('7', 'IAH', 'NRT', ('*')),
+    ('32', 'LAX', 'NRT', ('*')),
+    ('837', 'SFO', 'NRT', ('*')),
+    ('143', 'DEN', 'NRT', ('*')),
+    ('881', 'ORD', 'HND', ('*')),
+    ('39', 'LAX', 'HND', ('*')),
+    ('131', 'EWR', 'HND', ('*')),
+    ('875', 'SFO', 'HND', ('*')),
+    ('803', 'IAD', 'HND', ('*')),
+    ('79', 'EWR', 'NRT', ('*')),
+    ('35', 'SFO', 'KIX', (1, 3, 4, 5, 6))
 ]
-yesterday = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
+yesterday_date = datetime.now() - timedelta(1)
+yesterday = yesterday_date.strftime('%Y-%m-%d')
+yesterday_dow = yesterday_date.weekday()
 
 for flight in flights:
+    if '*' not in flight[3] and yesterday_dow not in flight[3]:
+        continue
+
     data = None
     attempt = 1
 
@@ -227,7 +232,7 @@ for flight in flights:
             break
         except Exception as e:
             attempt += 1
-            logger.error(f'Failed to fetch post-departure data for flight {flight[1]}-{flight[2]}: {e}.')
+            logger.error(f'Failed to fetch post-departure data for flight {flight[1]}-{flight[2]}.', exc_info=True)
             if attempt <= MAX_TRIES:
                 logger.error(f'Will try again in 5 seconds.')
                 time.sleep(5)
@@ -238,11 +243,16 @@ for flight in flights:
     if data is None:
         time.sleep(15)
         continue
-    else: 
-        process(data)
+    else:
+        try:
+            process(data)
+        except Exception as e:
+            logger.error(f'Failed to insert post-departure data for flight {flight[1]}-{flight[2]} into the database. Skipping this flight.', exc_info=True)
+            push_notification(f'Failed to insert post-departure data for flight {flight[1]}-{flight[2]} into the database. Skipping this flight.\nMost recent error: {e}', 2, retry=60, expire=1800)
+        
         time.sleep(15)
 
 connection.close()
 
-logger.info(f'Finished fetching all flights to NRT/HND on {yesterday}.')
+logger.info(f'Finished fetching all flights to NRT/HND/KIX on {yesterday}.')
 push_notification('Fetched Flights (Post-Departure)', f'Finished fetching all flights to NRT/HND/KIX on {yesterday}.', 0)
